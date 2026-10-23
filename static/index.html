@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Portfolio Assistant</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f5f7; display: flex; justify-content: center; }
+  #app { width: 100%; max-width: 720px; height: 100vh; display: flex; flex-direction: column; background: #fff; }
+  header { padding: 14px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+  #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; line-height: 1.45; }
+  .user { align-self: flex-end; background: #2563eb; color: #fff; }
+  .assistant { align-self: flex-start; background: #eef0f3; }
+  #chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px; }
+  .chip { border: 1px solid #cbd5e1; background: #fff; border-radius: 16px; padding: 6px 12px; cursor: pointer; font-size: 14px; }
+  #bar { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e5e7eb; }
+  #input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
+  .btn { padding: 10px 14px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; cursor: pointer; font-size: 14px; }
+  .btn.secondary { background: #fff; color: #2563eb; border: 1px solid #2563eb; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>AI Portfolio Assistant</header>
+  <div id="chat"></div>
+  <div id="chips">
+    <button class="chip">Summarize his top projects</button>
+    <button class="chip">What is his tech stack?</button>
+    <button class="chip">What is his education?</button>
+  </div>
+  <form id="form">
+    <div id="bar">
+      <label class="btn secondary" for="file">Upload JD</label>
+      <input type="file" id="file" accept=".pdf,.docx" hidden>
+      <input id="input" placeholder="Ask about skills, projects, education..." autocomplete="off">
+      <button class="btn" id="send" type="submit">Send</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const fileInput = document.getElementById("file");
+const chips = document.getElementById("chips");
+
+let history = [];
+let busy = false;
+
+function addBubble(role, text) {
+  const div = document.createElement("div");
+  div.className = "bubble " + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function setBusy(state) {
+  busy = state;
+  sendBtn.disabled = state;
+  input.disabled = state;
+  fileInput.disabled = state;
+  if (!state) input.focus();
+}
+
+async function sendMessage(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  setBusy(true);
+  chips.style.display = "none";
+  addBubble("user", text);
+  history.push({ role: "user", content: text });
+  const bubble = addBubble("assistant", "");
+  let reply = "";
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: history.slice(-20) }),
+    });
+    if (!response.ok) throw new Error("Server error " + response.status);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      reply += decoder.decode(value, { stream: true });
+      bubble.textContent = reply;
+      chat.scrollTop = chat.scrollHeight;
+    }
+    history.push({ role: "assistant", content: reply });
+  } catch (err) {
+    bubble.textContent = "Sorry, something went wrong. Please try again.";
+    history.pop();
+  }
+  setBusy(false);
+}
+
+async function uploadJD(file) {
+  if (!file || busy) return;
+  setBusy(true);
+  chips.style.display = "none";
+  const note = "I uploaded a job description for review.";
+  addBubble("user", note);
+  history.push({ role: "user", content: note });
+  const bubble = addBubble("assistant", "Analyzing the job description...");
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const response = await fetch("/upload-jd", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(typeof data.detail === "string" ? data.detail : "Upload failed");
+    }
+    bubble.textContent = data.report;
+    history.push({ role: "assistant", content: data.report });
+  } catch (err) {
+    bubble.textContent = "Could not process that file: " + err.message;
+    history.pop();
+  }
+  fileInput.value = "";
+  setBusy(false);
+}
+
+document.getElementById("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value;
+  input.value = "";
+  sendMessage(text);
+});
+document.querySelectorAll(".chip").forEach((c) =>
+  c.addEventListener("click", () => sendMessage(c.textContent))
+);
+fileInput.addEventListener("change", () => uploadJD(fileInput.files[0]));
+
+addBubble("assistant", "Hi! I'm the AI assistant for this candidate's portfolio. Ask about skills, projects and education, or upload a job description for a fit analysis.");
+</script>
+</body>
+</html>
