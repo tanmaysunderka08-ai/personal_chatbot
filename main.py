@@ -33,17 +33,31 @@ def chat(request: ChatRequest):
     messages = [chatbot_system_message] + [m.model_dump() for m in request.messages]
 
     def generate():
-        stream = my_client.chat.completions.create(
-            model=my_model, messages=messages, stream=True
-        )
-        for chunk in stream:
-            if not chunk.choices:
-                continue
-            piece = chunk.choices[0].delta.content
-            if piece:
-                yield piece
+        try:
+            stream = my_client.chat.completions.create(
+                model=my_model, messages=messages, stream=True
+            )
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                piece = chunk.choices[0].delta.content
+                if piece:
+                    yield piece
+        except Exception:
+            # response already started, can't send an error code now
+            traceback.print_exc()
+            yield "\n\n[Something went wrong, please try again in a minute.]"
 
     return StreamingResponse(generate(), media_type="text/plain")
+
+
+# name and project names for the frontend (no contact info)
+@app.get("/meta")
+def meta():
+    return {
+        "name": resume_obj.name,
+        "projects": [p.name for p in resume_obj.projects][:4],
+    }
 
 
 @app.post("/upload-jd")

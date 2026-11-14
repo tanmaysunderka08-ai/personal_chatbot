@@ -2,142 +2,578 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Portfolio Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portfolio Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f5f7; display: flex; justify-content: center; }
-  #app { width: 100%; max-width: 720px; height: 100vh; display: flex; flex-direction: column; background: #fff; }
-  header { padding: 14px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-  #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; line-height: 1.45; }
-  .user { align-self: flex-end; background: #2563eb; color: #fff; }
-  .assistant { align-self: flex-start; background: #eef0f3; }
-  #chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px; }
-  .chip { border: 1px solid #cbd5e1; background: #fff; border-radius: 16px; padding: 6px 12px; cursor: pointer; font-size: 14px; }
-  #bar { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e5e7eb; }
-  #input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
-  .btn { padding: 10px 14px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; cursor: pointer; font-size: 14px; }
-  .btn.secondary { background: #fff; color: #2563eb; border: 1px solid #2563eb; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --surface-2: #efede6;
+    --text: #1c1b18;
+    --muted: #6b6860;
+    --border: #e3e0d7;
+    --accent: #2f5d50;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3ece8;
+    --good: #2b7a4b; --good-soft: #e2f1e7;
+    --warn: #9a5c14; --warn-soft: #f6ead9;
+    --bad: #a93a2e;  --bad-soft: #f7e1de;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(28,27,24,.04), 0 6px 20px rgba(28,27,24,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131311; --surface: #1c1b19; --surface-2: #262522; --text: #ecebe6;
+      --muted: #9a978e; --border: #2f2e2a; --accent: #86bfa9; --accent-ink: #10201a;
+      --accent-soft: #1d2b26; --good: #84cba0; --good-soft: #1b2b21;
+      --warn: #e2ab64; --warn-soft: #2f2519; --bad: #ee8e82; --bad-soft: #321e1b;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+  .app { display: flex; flex-direction: column; height: 100dvh; max-width: 800px; margin: 0 auto; }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-weight: 600; font-size: 15px; letter-spacing: .02em;
+  }
+  .who { flex: 1; min-width: 0; }
+  .who h1 { font-family: Fraunces, Georgia, serif; font-size: 18px; font-weight: 600; margin: 0; line-height: 1.25; }
+  .who p { margin: 0; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); display: inline-block; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-ghost:hover { background: var(--surface-2); }
+
+  /* chat */
+  #log { flex: 1; overflow-y: auto; padding: 28px 20px 12px; }
+  .welcome h2 {
+    font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 30px;
+    letter-spacing: -.01em; line-height: 1.2; margin: 12px 0 10px;
+  }
+  .welcome > p { color: var(--muted); margin: 0 0 22px; max-width: 580px; }
+  .label {
+    font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 10px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+    padding: 7px 14px; font-size: 14px; cursor: pointer; text-align: left;
+    transition: border-color .15s, color .15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip:disabled { opacity: .5; cursor: default; }
+
+  .dropzone {
+    margin-top: 28px; display: flex; align-items: center; gap: 14px;
+    border: 1.5px dashed var(--border); border-radius: var(--radius);
+    padding: 18px 20px; background: var(--surface); cursor: pointer; width: 100%; text-align: left;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover { border-color: var(--accent); }
+  .dz-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    background: var(--accent-soft); color: var(--accent); display: grid; place-items: center;
+  }
+  .dropzone strong { display: block; font-weight: 600; }
+  .dropzone span { font-size: 13px; color: var(--muted); }
+
+  .msg { display: flex; margin: 0 0 14px; animation: rise .2s ease-out; }
+  .msg.user { justify-content: flex-end; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .bubble {
+    max-width: 85%; padding: 10px 15px; border-radius: var(--radius);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .user .bubble { background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 5px; }
+  .bot .bubble {
+    background: var(--surface); border: 1px solid var(--border);
+    border-bottom-left-radius: 5px; box-shadow: var(--shadow);
+  }
+  .bot.error .bubble { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .file-pill { display: inline-flex; align-items: center; gap: 8px; }
+
+  .typing { display: inline-flex; gap: 4px; padding: 6px 0; }
+  .typing i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  .typing i:nth-child(2) { animation-delay: .15s; }
+  .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+  /* fit report */
+  .fit {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);
+  }
+  .fit-head { display: flex; align-items: center; gap: 18px; }
+  .ring {
+    --p: 0; --c: var(--good);
+    width: 76px; height: 76px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--surface-2) 0);
+    display: grid; place-items: center; transition: --p .6s;
+  }
+  .ring b {
+    width: 62px; height: 62px; border-radius: 50%; background: var(--surface);
+    display: grid; place-items: center; font-size: 20px; font-weight: 600;
+  }
+  .fit-title { min-width: 0; }
+  .fit-title .label { margin-bottom: 4px; }
+  .fit-title h3 { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 19px; line-height: 1.3; }
+  .badge { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .badge.good { background: var(--good-soft); color: var(--good); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.bad  { background: var(--bad-soft);  color: var(--bad); }
+  .fit h4 { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+  .tag.ok   { background: var(--good-soft); color: var(--good); }
+  .tag.miss { background: var(--bad-soft);  color: var(--bad); }
+  .tag.none { background: var(--surface-2); color: var(--muted); }
+  .fit-notes { margin: 14px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+  .fit-foot { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .skeleton { height: 12px; border-radius: 6px; background: var(--surface-2); margin: 10px 0; animation: blink 1.4s infinite; }
+
+  /* input box */
+  .composer { padding: 10px 20px calc(14px + env(safe-area-inset-bottom)); }
+  .box {
+    display: flex; align-items: flex-end; gap: 6px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 20px; padding: 6px; box-shadow: var(--shadow);
+    transition: border-color .15s;
+  }
+  .box:focus-within { border-color: var(--accent); }
+  textarea {
+    flex: 1; border: none; outline: none; resize: none; background: transparent;
+    font: inherit; color: var(--text); padding: 9px 6px; max-height: 160px; line-height: 1.5;
+  }
+  textarea::placeholder { color: var(--muted); }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 14px; border: none; flex-shrink: 0;
+    display: grid; place-items: center; cursor: pointer; background: transparent; color: var(--muted);
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .icon-btn.send { background: var(--accent); color: var(--accent-ink); }
+  .icon-btn.send:hover { opacity: .9; background: var(--accent); color: var(--accent-ink); }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 8px 0 0; }
+
+  .drop-overlay {
+    position: fixed; inset: 12px; border: 2px dashed var(--accent); border-radius: 24px;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    display: none; place-items: center; z-index: 10; pointer-events: none;
+    font-family: Fraunces, Georgia, serif; font-size: 22px; color: var(--accent);
+  }
+  body.dragging .drop-overlay { display: grid; }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (max-width: 560px) {
+    header { padding: 12px 14px; }
+    #log { padding: 20px 14px 8px; }
+    .composer { padding-left: 12px; padding-right: 12px; }
+    .welcome h2 { font-size: 25px; }
+    .bubble { max-width: 92%; }
+    .btn-ghost .long { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<div id="app">
-  <header>AI Portfolio Assistant</header>
-  <div id="chat"></div>
-  <div id="chips">
-    <button class="chip">Summarize his top projects</button>
-    <button class="chip">What is his tech stack?</button>
-    <button class="chip">What is his education?</button>
-  </div>
-  <form id="form">
-    <div id="bar">
-      <label class="btn secondary" for="file">Upload JD</label>
-      <input type="file" id="file" accept=".pdf,.docx" hidden>
-      <input id="input" placeholder="Ask about skills, projects, education..." autocomplete="off">
-      <button class="btn" id="send" type="submit">Send</button>
+<div class="app">
+  <header>
+    <div class="avatar" id="avatar" aria-hidden="true">AI</div>
+    <div class="who">
+      <h1 id="name">Portfolio Assistant</h1>
+      <p><span class="dot"></span>AI portfolio assistant</p>
     </div>
-  </form>
+    <button class="btn-ghost" id="reset" type="button">New <span class="long">chat</span></button>
+  </header>
+
+  <main id="log" aria-live="polite">
+    <section class="welcome" id="welcome">
+      <h2 id="welcome-title">Ask me about the candidate</h2>
+      <p id="welcome-text">I answer recruiter questions about skills, projects and education. Upload a job description to see how well the profile fits the role.</p>
+      <p class="label">Try asking</p>
+      <div class="chips" id="suggestions"></div>
+      <button class="dropzone" id="dropzone" type="button">
+        <div class="dz-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 14 3-3 3 3"/></svg>
+        </div>
+        <div>
+          <strong>Check fit for a role</strong>
+          <span>Drop a job description here, or click to upload (PDF or DOCX, up to 5 MB)</span>
+        </div>
+      </button>
+    </section>
+  </main>
+
+  <footer class="composer">
+    <form class="box" id="form">
+      <button class="icon-btn" id="attach" type="button" title="Upload a job description" aria-label="Upload a job description">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg>
+      </button>
+      <label for="input" class="sr-only">Your question</label>
+      <textarea id="input" rows="1" maxlength="4000" placeholder="Ask about skills or projects…"></textarea>
+      <button class="icon-btn send" id="send" type="submit" aria-label="Send" disabled>
+        <svg id="icon-send" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        <svg id="icon-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+      </button>
+    </form>
+    <p class="hint">Answers are AI-generated. Please verify important details directly.</p>
+    <input type="file" id="file" accept=".pdf,.docx" hidden>
+  </footer>
 </div>
+<div class="drop-overlay">Drop the job description to check fit</div>
 
 <script>
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const fileInput = document.getElementById("file");
-const chips = document.getElementById("chips");
+(() => {
+  // same limits as main.py
+  const MAX_MESSAGES = 20;
+  const MAX_CHARS = 4000;
+  const MAX_UPLOAD = 5 * 1024 * 1024;
 
-let history = [];
-let busy = false;
+  const $ = (id) => document.getElementById(id);
+  const log = $("log"), input = $("input"), sendBtn = $("send"), fileInput = $("file");
+  const welcome = $("welcome");
 
-function addBubble(role, text) {
-  const div = document.createElement("div");
-  div.className = "bubble " + role;
-  div.textContent = text;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
+  const state = {
+    history: [],
+    fit: null,  // last fit report, always sent first so the bot remembers it
+    busy: false,
+    controller: null,
+    firstName: "the candidate",
+  };
 
-function setBusy(state) {
-  busy = state;
-  sendBtn.disabled = state;
-  input.disabled = state;
-  fileInput.disabled = state;
-  if (!state) input.focus();
-}
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function scrollDown() { log.scrollTop = log.scrollHeight; }
+  function hideWelcome() { welcome.hidden = true; }
+  function initials(name) {
+    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  }
 
-async function sendMessage(text) {
-  text = text.trim();
-  if (!text || busy) return;
-  setBusy(true);
-  chips.style.display = "none";
-  addBubble("user", text);
-  history.push({ role: "user", content: text });
-  const bubble = addBubble("assistant", "");
-  let reply = "";
-  try {
-    const response = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history.slice(-20) }),
+  function addMessage(role, text, extraClass) {
+    const row = el("div", `msg ${role}${extraClass ? " " + extraClass : ""}`);
+    const bubble = el("div", "bubble", text);
+    row.appendChild(bubble);
+    log.appendChild(row);
+    scrollDown();
+    return bubble;
+  }
+
+  function showTyping(bubble) {
+    bubble.textContent = "";
+    const t = el("span", "typing");
+    t.append(el("i"), el("i"), el("i"));
+    bubble.appendChild(t);
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    $("icon-send").hidden = busy;
+    $("icon-stop").hidden = !busy;
+    sendBtn.setAttribute("aria-label", busy ? "Stop" : "Send");
+    $("attach").disabled = busy;
+    document.querySelectorAll(".chip").forEach((c) => (c.disabled = busy));
+    updateSendState();
+  }
+  function updateSendState() {
+    sendBtn.disabled = !state.busy && !input.value.trim();
+  }
+
+  async function errorText(res) {
+    try {
+      const data = await res.json();
+      if (typeof data.detail === "string") return data.detail;
+    } catch (_) {}
+    if (res.status === 429) return "Too many requests right now. Please wait a minute and try again.";
+    if (res.status === 422) return "That message could not be sent (it may be too long).";
+    return `Something went wrong (error ${res.status}). Please try again.`;
+  }
+
+  function chips(container, questions) {
+    container.replaceChildren();
+    questions.forEach((q) => {
+      const b = el("button", "chip", q);
+      b.type = "button";
+      b.addEventListener("click", () => send(q));
+      container.appendChild(b);
     });
-    if (!response.ok) throw new Error("Server error " + response.status);
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      reply += decoder.decode(value, { stream: true });
+  }
+
+  function payload() {
+    const pinned = state.fit || [];
+    const recent = state.history.slice(-(MAX_MESSAGES - pinned.length));
+    return [...pinned, ...recent];
+  }
+
+  async function send(text) {
+    text = (text || "").trim().slice(0, MAX_CHARS);
+    if (!text || state.busy) return;
+    hideWelcome();
+    input.value = "";
+    autosize();
+
+    state.history.push({ role: "user", content: text });
+    addMessage("user", text);
+    const bubble = addMessage("bot", "");
+    showTyping(bubble);
+    setBusy(true);
+
+    const controller = new AbortController();
+    state.controller = controller;
+    let reply = "";
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: payload() }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(await errorText(res));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        reply += decoder.decode(value, { stream: true });
+        bubble.textContent = reply;
+        scrollDown();
+      }
+      reply += decoder.decode();
       bubble.textContent = reply;
-      chat.scrollTop = chat.scrollHeight;
+      if (!reply.trim()) throw new Error("The assistant returned an empty reply. Please try again.");
+      state.history.push({ role: "assistant", content: reply.slice(0, MAX_CHARS) });
+    } catch (err) {
+      if (err.name === "AbortError" && reply.trim()) {
+        state.history.push({ role: "assistant", content: reply.slice(0, MAX_CHARS) });
+      } else {
+        state.history.pop();
+        if (err.name === "AbortError") {
+          bubble.parentElement.remove();
+        } else {
+          bubble.parentElement.classList.add("error");
+          bubble.textContent = err.message || "Network error. Please try again.";
+          if (!input.value) { input.value = text; autosize(); }
+        }
+      }
+    } finally {
+      state.controller = null;
+      setBusy(false);
+      input.focus();
     }
-    history.push({ role: "assistant", content: reply });
-  } catch (err) {
-    bubble.textContent = "Sorry, something went wrong. Please try again.";
-    history.pop();
   }
-  setBusy(false);
-}
 
-async function uploadJD(file) {
-  if (!file || busy) return;
-  setBusy(true);
-  chips.style.display = "none";
-  const note = "I uploaded a job description for review.";
-  addBubble("user", note);
-  history.push({ role: "user", content: note });
-  const bubble = addBubble("assistant", "Analyzing the job description...");
-  const form = new FormData();
-  form.append("file", file);
-  try {
-    const response = await fetch("/upload-jd", { method: "POST", body: form });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(typeof data.detail === "string" ? data.detail : "Upload failed");
+  async function uploadJD(file) {
+    if (!file || state.busy) return;
+    const name = file.name || "job description";
+    if (!/\.(pdf|docx)$/i.test(name)) {
+      hideWelcome();
+      addMessage("bot", "Please upload a .pdf or .docx file.", "error");
+      return;
     }
-    bubble.textContent = data.report;
-    history.push({ role: "assistant", content: data.report });
-  } catch (err) {
-    bubble.textContent = "Could not process that file: " + err.message;
-    history.pop();
+    if (file.size > MAX_UPLOAD) {
+      hideWelcome();
+      addMessage("bot", "That file is larger than 5 MB. Please upload a smaller file.", "error");
+      return;
+    }
+    hideWelcome();
+    const pill = addMessage("user", "");
+    const p = el("span", "file-pill");
+    p.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+    p.appendChild(document.createTextNode(name));
+    pill.appendChild(p);
+
+    const row = el("div", "msg bot");
+    const card = el("div", "fit");
+    card.append(el("p", "label", "Analysing job description…"));
+    for (const w of [70, 45, 85]) { const s = el("div", "skeleton"); s.style.width = w + "%"; card.appendChild(s); }
+    row.appendChild(card);
+    log.appendChild(row);
+    scrollDown();
+    setBusy(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/upload-jd", { method: "POST", body: form });
+      if (!res.ok) throw new Error(await errorText(res));
+      const data = await res.json();
+      renderFit(card, data);
+      state.fit = [
+        { role: "user", content: `I uploaded a job description (${name.slice(0, 200)}). Please evaluate the fit.` },
+        { role: "assistant", content: String(data.report || "").slice(0, MAX_CHARS) },
+      ];
+    } catch (err) {
+      row.className = "msg bot error";
+      row.replaceChildren(el("div", "bubble", err.message || "Could not analyse this file."));
+    } finally {
+      setBusy(false);
+      scrollDown();
+    }
   }
-  fileInput.value = "";
-  setBusy(false);
-}
 
-document.getElementById("form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const text = input.value;
-  input.value = "";
-  sendMessage(text);
-});
-document.querySelectorAll(".chip").forEach((c) =>
-  c.addEventListener("click", () => sendMessage(c.textContent))
-);
-fileInput.addEventListener("change", () => uploadJD(fileInput.files[0]));
+  function renderFit(card, data) {
+    const r = data.result || {};
+    const lines = String(data.report || "").split("\n");
+    const roleLine = lines.find((l) => l.startsWith("Fit report:"));
+    const role = roleLine ? roleLine.replace("Fit report:", "").trim() : "This role";
+    const notes = lines.filter((l) => /^(Experience|Education) asked for:/.test(l));
+    const score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
+    const level = score >= 75 ? "good" : score >= 50 ? "warn" : "bad";
+    const verdict = score >= 75 ? "Strong fit" : score >= 50 ? "Partial fit" : "Weak fit";
 
-addBubble("assistant", "Hi! I'm the AI assistant for this candidate's portfolio. Ask about skills, projects and education, or upload a job description for a fit analysis.");
+    card.replaceChildren();
+    const head = el("div", "fit-head");
+    const ring = el("div", "ring");
+    ring.style.setProperty("--c", `var(--${level})`);
+    ring.appendChild(el("b", "", String(score)));
+    ring.setAttribute("aria-label", `Fit score ${score} out of 100`);
+    const title = el("div", "fit-title");
+    title.append(el("p", "label", "Fit report"), el("h3", "", role), el("span", `badge ${level}`, verdict));
+    head.append(ring, title);
+    card.appendChild(head);
+    requestAnimationFrame(() => ring.style.setProperty("--p", score));
+    ring.style.background = `conic-gradient(var(--${level}) ${score}%, var(--surface-2) 0)`;
+
+    const section = (heading, items, cls) => {
+      card.appendChild(el("h4", "", `${heading} (${items.length})`));
+      const wrap = el("div", "tags");
+      if (!items.length) wrap.appendChild(el("span", "tag none", "None"));
+      items.forEach((s) => wrap.appendChild(el("span", `tag ${cls}`, s)));
+      card.appendChild(wrap);
+    };
+    section("Matched skills", r.matched_skills || [], "ok");
+    section("Missing skills", r.missing_skills || [], "miss");
+
+    if (notes.length) {
+      const ul = el("ul", "fit-notes");
+      notes.forEach((n) => ul.appendChild(el("li", "", n)));
+      card.appendChild(ul);
+    }
+
+    const foot = el("div", "fit-foot");
+    foot.appendChild(el("p", "label", "Ask a follow-up"));
+    const c = el("div", "chips");
+    chips(c, [
+      "Which projects are most relevant to this role?",
+      "Talk me through the missing skills",
+      `Why would ${state.firstName} be a good hire for this role?`,
+    ]);
+    foot.appendChild(c);
+    card.appendChild(foot);
+  }
+
+  // fill in name + suggested questions from /meta
+  const defaultQuestions = [
+    "Give me a 30-second summary of the candidate",
+    "What are the strongest technical skills?",
+    "Which project is the most impressive, and why?",
+    "What is the academic background?",
+  ];
+  chips($("suggestions"), defaultQuestions);
+
+  fetch("/meta")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m) => {
+      if (!m || !m.name) return;
+      // resume names are often in capitals, show them as Tanmay Sunderka
+      if (m.name === m.name.toUpperCase()) {
+        m.name = m.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      const first = m.name.trim().split(/\s+/)[0];
+      state.firstName = first;
+      $("name").textContent = m.name;
+      $("avatar").textContent = initials(m.name) || "AI";
+      document.title = `${m.name} · Portfolio Assistant`;
+      $("welcome-title").textContent = `Ask me about ${first}`;
+      $("welcome-text").textContent =
+        `I answer recruiter questions about ${first}'s skills, projects and education. Upload a job description to see how well ${first} fits the role.`;
+      const qs = [
+        `Give me a 30-second summary of ${first}`,
+        `What are ${first}'s strongest technical skills?`,
+        ...(m.projects || []).slice(0, 2).map((p) => `Tell me about the ${p} project`),
+        "What is the academic background?",
+      ];
+      chips($("suggestions"), qs);
+    })
+    .catch(() => {});
+
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 160) + "px";
+    updateSendState();
+  }
+  input.addEventListener("input", autosize);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      if (!state.busy) send(input.value);
+    }
+  });
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (state.busy) { if (state.controller) state.controller.abort(); }
+    else send(input.value);
+  });
+
+  const pickFile = () => { if (!state.busy) fileInput.click(); };
+  $("attach").addEventListener("click", pickFile);
+  $("dropzone").addEventListener("click", pickFile);
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files[0];
+    fileInput.value = "";
+    uploadJD(f);
+  });
+
+  let dragDepth = 0;
+  window.addEventListener("dragenter", (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+    e.preventDefault(); dragDepth++; document.body.classList.add("dragging");
+  });
+  window.addEventListener("dragleave", () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) document.body.classList.remove("dragging");
+  });
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
+    uploadJD(e.dataTransfer?.files?.[0]);
+  });
+
+  $("reset").addEventListener("click", () => {
+    if (state.controller) state.controller.abort();
+    state.history = []; state.fit = null;
+    log.replaceChildren(welcome);
+    welcome.hidden = false;
+    input.value = ""; autosize(); input.focus();
+  });
+
+  input.focus();
+})();
 </script>
 </body>
 </html>

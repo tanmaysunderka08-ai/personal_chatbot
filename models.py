@@ -49,7 +49,7 @@ class JobDesc(BaseModel):
 
 
 class MatchResult(BaseModel):
-    score: float = Field(ge=0, le=100)
+    score: float = Field(default=0, ge=0, le=100)
     name: str
     matched_skills: list[str] = []
     missing_skills: list[str] = []

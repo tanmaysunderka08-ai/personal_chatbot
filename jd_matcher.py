@@ -1,9 +1,9 @@
+import io
 import json
 from pathlib import Path
 
 import docx
 import pymupdf as fitz
-from pydantic import ValidationError
 
 from chatbot_backend import my_client, my_model, resume_obj
 from models import JobDesc, MatchResult
@@ -64,11 +64,53 @@ Rules:
   & Algorithms" supports both "Data Structures" and "Algorithms".
 - Every skill in the job's required_skills and preferred_skills must appear in
   exactly one of the two lists, written the way the job wrote it.
-- score: a number from 0 to 100 = 70 * (share of required skills matched)
-  + 30 * (share of preferred skills matched). If only one of the two lists is
-  non-empty, that list alone is worth 100. If both are empty, the score is 0.
+- score: put 0, it is calculated later.
 - Do not invent skills the profile does not contain.
 """
+
+
+def clean(skill):
+    return " ".join(skill.lower().split())
+
+
+def dedupe(skills):
+    seen = set()
+    out = []
+    for s in skills:
+        if clean(s) and clean(s) not in seen:
+            seen.add(clean(s))
+            out.append(s)
+    return out
+
+
+# the llm only decides which skills match, the score is calculated here
+# so it is the same every time
+def score_match(jd, result):
+    matched = {clean(s) for s in result.matched_skills}
+    required = dedupe(jd.required_skills)
+    req_set = {clean(s) for s in required}
+    preferred = [s for s in dedupe(jd.preferred_skills) if clean(s) not in req_set]
+
+    def share(skills):
+        hits = sum(1 for s in skills if clean(s) in matched)
+        return hits / len(skills)
+
+    if required and preferred:
+        score = 70 * share(required) + 30 * share(preferred)
+    elif required:
+        score = 100 * share(required)
+    elif preferred:
+        score = 100 * share(preferred)
+    else:
+        score = 0
+
+    # rebuild both lists from the job's own skill names
+    # if the llm wrote a skill differently it counts as missing
+    all_skills = required + preferred
+    result.score = round(score, 1)
+    result.matched_skills = [s for s in all_skills if clean(s) in matched]
+    result.missing_skills = [s for s in all_skills if clean(s) not in matched]
+    return result
 
 
 def match_jd(jd, profile):
@@ -89,7 +131,7 @@ def match_jd(jd, profile):
     )
             
     result = MatchResult.model_validate_json(response.choices[0].message.content)
-    return result
+    return score_match(jd, result)
 
 def format_report(jd, result):
     if result.score >= 75:
@@ -108,7 +150,8 @@ def format_report(jd, result):
         "Missing skills: " + (", ".join(result.missing_skills) or "none"),
     ]
     if jd.minimum_experience:
-        lines.append(f"Experience asked for: {jd.minimum_experience} years (not included in the score)")
+        yrs = "year" if jd.minimum_experience == 1 else "years"
+        lines.append(f"Experience asked for: {jd.minimum_experience} {yrs} (not included in the score)")
     if jd.education:
         lines.append(f"Education asked for: {jd.education}")
     return "\n".join(lines)

@@ -53,6 +53,10 @@ resume_response = {
     "type": "json_object"
 }
  
+resume_files = [f for f in os.listdir(resume_dir) if f.lower().endswith((".pdf", ".docx"))]
+if len(resume_files) > 1:
+    raise SystemExit(f"More than one resume in {resume_dir}: {resume_files}. Keep only one.")
+
 res = parse_resume(resume_dir)
 
 if not res:
