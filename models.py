@@ -12,6 +12,7 @@ class Experience(BaseModel):
  
 class Project(BaseModel):
     name: str
+    date: str | None = None
     description: list[str] = []
     skills_used: list[str] = []
     links: list[str] = []
@@ -29,10 +30,17 @@ class Resume(BaseModel):
     name: str
     email: str | None = None
     phone: str | None = None
+    summary: str | None = None
+    looking_for: list[str] = []
+    links: list[str] = []
     experiences: list[Experience] = []
     skills: list[str] = []
     projects: list[Project] = []
+    competitions: list[Project] = []
     education: list[Education] = []
+    coursework: list[str] = []
+    achievements: list[str] = []
+    extracurriculars: list[str] = []
 
 class JobDesc(BaseModel):
     role: str | None = None

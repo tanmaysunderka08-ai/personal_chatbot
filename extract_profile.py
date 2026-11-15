@@ -88,7 +88,9 @@ resume_extraction_response = my_client.chat.completions.create(
     model=my_model,
     messages=resume_extraction_messages,
     response_format=resume_response,
-    temperature=0
+    temperature=0,
+    reasoning_effort="low",
+    max_completion_tokens=16000,
 )
 
 resume_extraction_answer = resume_extraction_response.choices[0].message.content
